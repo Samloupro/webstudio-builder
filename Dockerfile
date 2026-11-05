@@ -19,7 +19,13 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 ENV NODE_OPTIONS=--max-old-space-size=6144
-RUN pnpm --filter=@webstudio-is/builder build
+# The builder's vite.config.ts enables @vercel/remix's preset, which emits
+# serverBundles (build/server/nodejs-<hash>/index.js). The production start
+# script is `remix-serve build/server/index.js`, so drop the preset to get the
+# standard Remix Node build output that remix-serve expects.
+RUN sed -i 's/presets: \[vercelPreset()\],//' apps/builder/vite.config.ts \
+ && grep -q "vitePlugin as remix" apps/builder/vite.config.ts \
+ && pnpm --filter=@webstudio-is/builder build
 
 FROM base AS runtime
 COPY --from=build /app /app
